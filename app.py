@@ -2,8 +2,7 @@ import streamlit as st
 import pandas as pd
 import sqlalchemy as db
 from sqlalchemy import select, Table, MetaData
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.express as px
 import numpy as np
 from scipy.stats import norm
 from statsmodels.tsa.seasonal import seasonal_decompose
@@ -47,33 +46,34 @@ st.header('Análisis de Patrones de Compra')
 
 # Ventas por categoría
 st.subheader('Ventas por Categoría')
-ventas_por_categoria = df_ventas.groupby('categoria')['cantidad'].sum()
-st.bar_chart(ventas_por_categoria)
+ventas_por_categoria = df_ventas.groupby('categoria')['cantidad'].sum().reset_index()
+fig = px.bar(ventas_por_categoria, x='categoria', y='cantidad', title='Ventas por Categoría')
+st.plotly_chart(fig)
 
 # Ventas por producto
 st.subheader('Ventas por Producto')
-ventas_por_producto = df_ventas.groupby('producto')['cantidad'].sum()
-st.bar_chart(ventas_por_producto)
+ventas_por_producto = df_ventas.groupby('producto')['cantidad'].sum().reset_index()
+fig = px.bar(ventas_por_producto, x='producto', y='cantidad', title='Ventas por Producto')
+st.plotly_chart(fig)
 
 # Análisis de series temporales
 st.subheader('Análisis de Series Temporales')
 df_ventas['fecha_venta'] = pd.to_datetime(df_ventas['fecha_venta'])
-ventas_por_fecha = df_ventas.groupby('fecha_venta')['cantidad'].sum()
+ventas_por_fecha = df_ventas.groupby('fecha_venta')['cantidad'].sum().reset_index()
+
+# Gráfico de series temporales
+fig = px.line(ventas_por_fecha, x='fecha_venta', y='cantidad', title='Ventas a lo Largo del Tiempo')
+st.plotly_chart(fig)
 
 # Descomposición de la serie temporal
-decomposition = seasonal_decompose(ventas_por_fecha, model='additive', period=30)
-fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(10, 8))
-decomposition.trend.plot(ax=ax1, title='Tendencia')
-decomposition.seasonal.plot(ax=ax2, title='Estacionalidad')
-decomposition.resid.plot(ax=ax3, title='Residuos')
-ventas_por_fecha.plot(ax=ax4, title='Ventas Totales')
-plt.tight_layout()
-st.pyplot(fig)
+decomposition = seasonal_decompose(ventas_por_fecha.set_index('fecha_venta')['cantidad'], model='additive', period=30)
+fig = px.line(decomposition.trend, title='Tendencia de Ventas')
+st.plotly_chart(fig)
 
 # Análisis ABC de inventario
 st.subheader('Análisis ABC de Inventario')
-ventas_por_producto = df_ventas.groupby('producto')['cantidad'].sum().sort_values(ascending=False)
-ventas_por_producto['contribucion'] = ventas_por_producto.cumsum() / ventas_por_producto.sum() * 100
+ventas_por_producto = df_ventas.groupby('producto')['cantidad'].sum().reset_index()
+ventas_por_producto['contribucion'] = ventas_por_producto['cantidad'].cumsum() / ventas_por_producto['cantidad'].sum() * 100
 ventas_por_producto['categoria'] = pd.cut(
     ventas_por_producto['contribucion'],
     bins=[0, 80, 95, 100],
@@ -81,21 +81,18 @@ ventas_por_producto['categoria'] = pd.cut(
 )
 
 # Gráfico de Pareto
-fig, ax1 = plt.subplots()
-ax1.bar(ventas_por_producto.index, ventas_por_producto['cantidad'], color='b')
-ax1.set_ylabel('Ventas Totales', color='b')
-ax2 = ax1.twinx()
-ax2.plot(ventas_por_producto.index, ventas_por_producto['contribucion'], color='r', marker='o')
-ax2.set_ylabel('Contribución Acumulada (%)', color='r')
-plt.xticks(rotation=90)
-st.pyplot(fig)
+fig = px.bar(ventas_por_producto, x='producto', y='cantidad', color='categoria', title='Análisis ABC de Inventario')
+st.plotly_chart(fig)
 
 # Análisis de rotación de inventario
 st.subheader('Rotación de Inventario')
-inventario_promedio = df_inventario.groupby('producto')['stock_actual'].mean()
-rotacion_inventario = ventas_por_producto['cantidad'] / inventario_promedio
-rotacion_inventario = rotacion_inventario.sort_values(ascending=False)
-st.bar_chart(rotacion_inventario)
+inventario_promedio = df_inventario.groupby('producto')['stock_actual'].mean().reset_index()
+rotacion_inventario = ventas_por_producto.merge(inventario_promedio, on='producto')
+rotacion_inventario['rotacion'] = rotacion_inventario['cantidad'] / rotacion_inventario['stock_actual']
+rotacion_inventario = rotacion_inventario.sort_values(by='rotacion', ascending=False)
+
+fig = px.bar(rotacion_inventario, x='producto', y='rotacion', title='Rotación de Inventario por Producto')
+st.plotly_chart(fig)
 
 # Puntos de reorden y stock de seguridad
 st.subheader('Puntos de Reorden y Stock de Seguridad')
@@ -103,30 +100,31 @@ tiempo_entrega = st.slider('Tiempo de Entrega (días)', 1, 14, 7)
 nivel_servicio = st.slider('Nivel de Servicio', 0.90, 0.99, 0.95)
 z = norm.ppf(nivel_servicio)
 
-demanda_promedio = df_ventas.groupby('producto')['cantidad'].mean()
-desviacion_demanda = df_ventas.groupby('producto')['cantidad'].std()
+demanda_promedio = df_ventas.groupby('producto')['cantidad'].mean().reset_index()
+desviacion_demanda = df_ventas.groupby('producto')['cantidad'].std().reset_index()
 
-stock_seguridad = z * desviacion_demanda * np.sqrt(tiempo_entrega)
-punto_reorden = demanda_promedio * tiempo_entrega + stock_seguridad
+stock_seguridad = z * desviacion_demanda['cantidad'] * np.sqrt(tiempo_entrega)
+punto_reorden = demanda_promedio['cantidad'] * tiempo_entrega + stock_seguridad
 
 df_reorden = pd.DataFrame({
-    'Stock Actual': df_inventario.groupby('producto')['stock_actual'].mean(),
+    'producto': demanda_promedio['producto'],
+    'Stock Actual': df_inventario.groupby('producto')['stock_actual'].mean().values,
     'Punto de Reorden': punto_reorden,
     'Stock de Seguridad': stock_seguridad
 })
-st.bar_chart(df_reorden)
+
+fig = px.bar(df_reorden, x='producto', y=['Stock Actual', 'Punto de Reorden', 'Stock de Seguridad'],
+             title='Puntos de Reorden vs Stock Actual', barmode='group')
+st.plotly_chart(fig)
 
 # Predicción de demanda
 st.subheader('Predicción de Demanda')
-modelo = ARIMA(ventas_por_fecha, order=(1, 1, 1))
+modelo = ARIMA(ventas_por_fecha.set_index('fecha_venta')['cantidad'], order=(1, 1, 1))
 resultados = modelo.fit()
 predicciones = resultados.predict(start=len(ventas_por_fecha), end=len(ventas_por_fecha) + 30)
 
-fig, ax = plt.subplots()
-ventas_por_fecha.plot(ax=ax, label='Histórico')
-predicciones.plot(ax=ax, label='Predicciones')
-plt.legend()
-st.pyplot(fig)
+fig = px.line(predicciones, title='Predicción de Demanda')
+st.plotly_chart(fig)
 
 # Cerrar conexión
 connection.close()
