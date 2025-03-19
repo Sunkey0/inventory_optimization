@@ -21,8 +21,8 @@ try:
     inventario = Table('inventario', metadata, autoload_with=engine)
 
     # Consultas
-    query_ventas = select([ventas])
-    query_inventario = select([inventario])
+    query_ventas = select(ventas)
+    query_inventario = select(inventario)
 
     # Convertir a DataFrames
     df_ventas = pd.read_sql(query_ventas, connection)
