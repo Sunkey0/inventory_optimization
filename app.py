@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import sqlalchemy as db
+from sqlalchemy import select, Table, MetaData
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -11,19 +12,25 @@ from statsmodels.tsa.arima.model import ARIMA
 # Conexión a la base de datos
 engine = db.create_engine('sqlite:///inventario.db')
 connection = engine.connect()
-metadata = db.MetaData()
+metadata = MetaData()
 
-# Cargar tablas
-ventas = db.Table('ventas', metadata, autoload_with=engine)
-inventario = db.Table('inventario', metadata, autoload_with=engine)
+# Verificar si las tablas existen
+try:
+    # Cargar tablas
+    ventas = Table('ventas', metadata, autoload_with=engine)
+    inventario = Table('inventario', metadata, autoload_with=engine)
 
-# Consultas
-query_ventas = db.select([ventas])
-query_inventario = db.select([inventario])
+    # Consultas
+    query_ventas = select([ventas])
+    query_inventario = select([inventario])
 
-# Convertir a DataFrames
-df_ventas = pd.read_sql(query_ventas, connection)
-df_inventario = pd.read_sql(query_inventario, connection)
+    # Convertir a DataFrames
+    df_ventas = pd.read_sql(query_ventas, connection)
+    df_inventario = pd.read_sql(query_inventario, connection)
+
+except db.exc.NoSuchTableError as e:
+    st.error(f"Error: {e}. Asegúrate de que las tablas 'ventas' e 'inventario' existen en la base de datos.")
+    st.stop()
 
 # Título de la aplicación
 st.title('Optimización de Inventarios')
