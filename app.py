@@ -49,29 +49,6 @@ else:
     st.header('Datos de Inventario')
     st.write(df_inventario)
 
-# Filtros para análisis
-st.sidebar.header("Filtros para Análisis")
-categorias = df_ventas['categoria'].unique()
-categoria_seleccionada = st.sidebar.selectbox("Selecciona una categoría:", categorias)
-
-productos = df_ventas[df_ventas['categoria'] == categoria_seleccionada]['producto'].unique()
-producto_seleccionado = st.sidebar.selectbox("Selecciona un producto:", productos)
-
-fecha_min = df_ventas['fecha_venta'].min()
-fecha_max = df_ventas['fecha_venta'].max()
-rango_fechas = st.sidebar.date_input(
-    "Selecciona un rango de fechas:",
-    [fecha_min, fecha_max]
-)
-
-# Filtrar datos según selección
-df_filtrado = df_ventas[
-    (df_ventas['categoria'] == categoria_seleccionada) &
-    (df_ventas['producto'] == producto_seleccionado) &
-    (df_ventas['fecha_venta'] >= pd.to_datetime(rango_fechas[0])) &
-    (df_ventas['fecha_venta'] <= pd.to_datetime(rango_fechas[1]))
-]
-
 # Pestañas para análisis y explicaciones
 tab1, tab2, tab3 = st.tabs(["Análisis", "KPIs y Ciclos de Ventas", "Explicaciones"])
 
@@ -165,6 +142,29 @@ with tab1:
 with tab2:
     # KPIs y Ciclos de Ventas
     st.header('KPIs y Ciclos de Ventas')
+
+    # Filtros para análisis
+    st.subheader('Filtros')
+    categorias = df_ventas['categoria'].unique()
+    categoria_seleccionada = st.selectbox("Selecciona una categoría:", categorias)
+
+    productos = df_ventas[df_ventas['categoria'] == categoria_seleccionada]['producto'].unique()
+    producto_seleccionado = st.selectbox("Selecciona un producto:", productos)
+
+    fecha_min = df_ventas['fecha_venta'].min()
+    fecha_max = df_ventas['fecha_venta'].max()
+    rango_fechas = st.date_input(
+        "Selecciona un rango de fechas:",
+        [fecha_min, fecha_max]
+    )
+
+    # Filtrar datos según selección
+    df_filtrado = df_ventas[
+        (df_ventas['categoria'] == categoria_seleccionada) &
+        (df_ventas['producto'] == producto_seleccionado) &
+        (df_ventas['fecha_venta'] >= pd.to_datetime(rango_fechas[0])) &
+        (df_ventas['fecha_venta'] <= pd.to_datetime(rango_fechas[1]))
+    ]
 
     # KPIs
     st.subheader('KPIs')
