@@ -182,7 +182,7 @@ with tab2:
     # Ciclos de Ventas
     st.subheader('Ciclos de Ventas')
     df_filtrado['fecha_venta'] = pd.to_datetime(df_filtrado['fecha_venta'])
-    df_filtrado['mes'] = df_filtrado['fecha_venta'].dt.to_period('M')
+    df_filtrado['mes'] = df_filtrado['fecha_venta'].dt.to_period('M').astype(str)  # Convertir a string
     ventas_por_mes = df_filtrado.groupby('mes')['cantidad'].sum().reset_index()
 
     # Gráfico de ciclos de ventas
