@@ -191,12 +191,27 @@ with tab2:
 
     # Análisis de alta demanda
     st.subheader('Análisis de Alta Demanda')
-    umbral_alta_demanda = st.slider("Umbral de Alta Demanda", min_value=0, max_value=int(max_ventas), value=int(promedio_ventas))
-    alta_demanda = df_filtrado[df_filtrado['cantidad'] > umbral_alta_demanda]
+    if not df_filtrado.empty:
+        # Calcular límites dinámicos para el umbral
+        min_umbral = int(df_filtrado['cantidad'].min())
+        max_umbral = int(df_filtrado['cantidad'].max())
+        promedio_umbral = int(df_filtrado['cantidad'].mean())
 
-    st.write(f"Número de días con alta demanda: {len(alta_demanda)}")
-    st.write(f"Promedio de ventas en días de alta demanda: {round(alta_demanda['cantidad'].mean(), 2)}")
+        # Slider con límites dinámicos
+        umbral_alta_demanda = st.slider(
+            "Umbral de Alta Demanda",
+            min_value=min_umbral,
+            max_value=max_umbral,
+            value=promedio_umbral
+        )
 
+        # Filtrar días de alta demanda
+        alta_demanda = df_filtrado[df_filtrado['cantidad'] > umbral_alta_demanda]
+
+        st.write(f"Número de días con alta demanda: {len(alta_demanda)}")
+        st.write(f"Promedio de ventas en días de alta demanda: {round(alta_demanda['cantidad'].mean(), 2)}")
+    else:
+        st.warning("No hay datos disponibles para el filtro seleccionado.")
 with tab3:
     # Explicaciones de modelos, ecuaciones y métodos
     st.header('Explicaciones y Métodos')
