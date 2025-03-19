@@ -7,6 +7,7 @@ import numpy as np
 from scipy.stats import norm
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.arima.model import ARIMA
+from sklearn.cluster import KMeans  # Para clustering
 
 # Conexión a la base de datos
 engine = db.create_engine('sqlite:///inventario.db')
@@ -185,9 +186,28 @@ with tab2:
     df_filtrado['mes'] = df_filtrado['fecha_venta'].dt.to_period('M').astype(str)  # Convertir a string
     ventas_por_mes = df_filtrado.groupby('mes')['cantidad'].sum().reset_index()
 
-    # Gráfico de ciclos de ventas
-    fig = px.line(ventas_por_mes, x='mes', y='cantidad', title='Ciclos de Ventas por Mes')
-    st.plotly_chart(fig)
+    # Detección de patrones de compras usando K-Means
+    if not ventas_por_mes.empty:
+        # Aplicar K-Means para agrupar los meses en 2 clusters (alta y baja demanda)
+        kmeans = KMeans(n_clusters=2, random_state=42)
+        ventas_por_mes['cluster'] = kmeans.fit_predict(ventas_por_mes[['cantidad']])
+
+        # Identificar el cluster de alta demanda
+        cluster_alta_demanda = ventas_por_mes.loc[ventas_por_mes['cantidad'].idxmax(), 'cluster']
+        meses_alta_demanda = ventas_por_mes[ventas_por_mes['cluster'] == cluster_alta_demanda]
+
+        # Gráfico de ciclos de ventas con meses de alta demanda resaltados
+        fig = px.line(ventas_por_mes, x='mes', y='cantidad', title='Ciclos de Ventas por Mes')
+        fig.add_scatter(
+            x=meses_alta_demanda['mes'],
+            y=meses_alta_demanda['cantidad'],
+            mode='markers',
+            marker=dict(color='red', size=10),
+            name='Alta Demanda'
+        )
+        st.plotly_chart(fig)
+    else:
+        st.warning("No hay datos disponibles para el filtro seleccionado.")
 
     # Análisis de alta demanda
     st.subheader('Análisis de Alta Demanda')
@@ -212,6 +232,7 @@ with tab2:
         st.write(f"Promedio de ventas en días de alta demanda: {round(alta_demanda['cantidad'].mean(), 2)}")
     else:
         st.warning("No hay datos disponibles para el filtro seleccionado.")
+
 with tab3:
     # Explicaciones de modelos, ecuaciones y métodos
     st.header('Explicaciones y Métodos')
