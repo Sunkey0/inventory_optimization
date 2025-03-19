@@ -6,3 +6,4 @@ sqlalchemy
 matplotlib
 seaborn
 statsmodels
+Plotly 
