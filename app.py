@@ -49,8 +49,31 @@ else:
     st.header('Datos de Inventario')
     st.write(df_inventario)
 
+# Filtros para análisis
+st.sidebar.header("Filtros para Análisis")
+categorias = df_ventas['categoria'].unique()
+categoria_seleccionada = st.sidebar.selectbox("Selecciona una categoría:", categorias)
+
+productos = df_ventas[df_ventas['categoria'] == categoria_seleccionada]['producto'].unique()
+producto_seleccionado = st.sidebar.selectbox("Selecciona un producto:", productos)
+
+fecha_min = df_ventas['fecha_venta'].min()
+fecha_max = df_ventas['fecha_venta'].max()
+rango_fechas = st.sidebar.date_input(
+    "Selecciona un rango de fechas:",
+    [fecha_min, fecha_max]
+)
+
+# Filtrar datos según selección
+df_filtrado = df_ventas[
+    (df_ventas['categoria'] == categoria_seleccionada) &
+    (df_ventas['producto'] == producto_seleccionado) &
+    (df_ventas['fecha_venta'] >= pd.to_datetime(rango_fechas[0])) &
+    (df_ventas['fecha_venta'] <= pd.to_datetime(rango_fechas[1]))
+]
+
 # Pestañas para análisis y explicaciones
-tab1, tab2 = st.tabs(["Análisis", "Explicaciones"])
+tab1, tab2, tab3 = st.tabs(["Análisis", "KPIs y Ciclos de Ventas", "Explicaciones"])
 
 with tab1:
     # Análisis de patrones de compra
@@ -140,6 +163,41 @@ with tab1:
     st.plotly_chart(fig)
 
 with tab2:
+    # KPIs y Ciclos de Ventas
+    st.header('KPIs y Ciclos de Ventas')
+
+    # KPIs
+    st.subheader('KPIs')
+    total_ventas = df_filtrado['cantidad'].sum()
+    promedio_ventas = df_filtrado['cantidad'].mean()
+    max_ventas = df_filtrado['cantidad'].max()
+    min_ventas = df_filtrado['cantidad'].min()
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total de Ventas", total_ventas)
+    col2.metric("Promedio de Ventas", round(promedio_ventas, 2))
+    col3.metric("Máximo de Ventas", max_ventas)
+    col4.metric("Mínimo de Ventas", min_ventas)
+
+    # Ciclos de Ventas
+    st.subheader('Ciclos de Ventas')
+    df_filtrado['fecha_venta'] = pd.to_datetime(df_filtrado['fecha_venta'])
+    df_filtrado['mes'] = df_filtrado['fecha_venta'].dt.to_period('M')
+    ventas_por_mes = df_filtrado.groupby('mes')['cantidad'].sum().reset_index()
+
+    # Gráfico de ciclos de ventas
+    fig = px.line(ventas_por_mes, x='mes', y='cantidad', title='Ciclos de Ventas por Mes')
+    st.plotly_chart(fig)
+
+    # Análisis de alta demanda
+    st.subheader('Análisis de Alta Demanda')
+    umbral_alta_demanda = st.slider("Umbral de Alta Demanda", min_value=0, max_value=int(max_ventas), value=int(promedio_ventas))
+    alta_demanda = df_filtrado[df_filtrado['cantidad'] > umbral_alta_demanda]
+
+    st.write(f"Número de días con alta demanda: {len(alta_demanda)}")
+    st.write(f"Promedio de ventas en días de alta demanda: {round(alta_demanda['cantidad'].mean(), 2)}")
+
+with tab3:
     # Explicaciones de modelos, ecuaciones y métodos
     st.header('Explicaciones y Métodos')
 
